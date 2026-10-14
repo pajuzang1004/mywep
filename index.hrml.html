@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>주식 물타기 & 목표평단 계산기</title>
+  <style>
+    :root {
+      --primary: #1a73e8;
+      --bg: #f8f9fa;
+      --card: #ffffff;
+      --text: #202124;
+      --border: #dadce0;
+      --up: #d93025;
+      --down: #1967d2;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 12px;
+      display: flex;
+      justify-content: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 500px;
+      background: var(--card);
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      padding: 16px;
+    }
+    h1 {
+      font-size: 1.25rem;
+      margin-top: 4px;
+      margin-bottom: 16px;
+      text-align: center;
+      color: var(--primary);
+    }
+    .tabs {
+      display: flex;
+      border-bottom: 2px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .tab {
+      flex: 1;
+      text-align: center;
+      padding: 10px 4px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: #5f6368;
+      transition: all 0.2s;
+    }
+    .tab.active {
+      color: var(--primary);
+      border-bottom: 3px solid var(--primary);
+      margin-bottom: -2px;
+    }
+    .section {
+      display: none;
+    }
+    .section.active {
+      display: block;
+    }
+
+    /* 다차수 물타기: 헤더와 입력 줄을 동일한 Grid 비율로 완벽 일치 */
+    .header-cols,
+    #buy-list .row {
+      display: grid;
+      /* 구분(58px) | 매수단가(1.2비율) | 수량(1비율) | 삭제버튼(32px) */
+      grid-template-columns: 58px 1.2fr 1fr 32px;
+      gap: 6px;
+      align-items: center;
+    }
+    .header-cols {
+      margin-bottom: 8px;
+      font-size: 0.8rem;
+      color: #5f6368;
+      font-weight: 600;
+      padding: 0 2px;
+    }
+    .header-cols span:nth-child(1) { text-align: left; }
+    .header-cols span:nth-child(2),
+    .header-cols span:nth-child(3) { text-align: right; }
+
+    #buy-list .row {
+      margin-bottom: 10px;
+    }
+    .row-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      white-space: nowrap;
+      letter-spacing: -0.5px;
+    }
+
+    /* 목표 평단가 탭 전용 줄 스타일 */
+    .target-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .target-label {
+      width: 125px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    /* 모바일 화면에서 input이 삐져나가지 않도록 min-width: 0 필수 지정 */
+    input[type="number"] {
+      width: 100%;
+      min-width: 0;
+      padding: 10px 8px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 16px; /* 모바일 사파리/크롬 자동 줌인 방지 */
+      text-align: right;
+      outline: none;
+      background: #fff;
+    }
+    input[type="number"]:focus {
+      border-color: var(--primary);
+    }
+
+    .btn {
+      padding: 11px 14px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: background 0.2s;
+    }
+    .btn-add {
+      background: #e8f0fe;
+      color: var(--primary);
+      width: 100%;
+      margin-top: 4px;
+      margin-bottom: 14px;
+    }
+    .btn-del {
+      background: #fce8e6;
+      color: var(--up);
+      width: 32px;
+      height: 38px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+    }
+    .empty-del {
+      width: 32px;
+      height: 38px;
+    }
+
+    .result-box {
+      background: #f1f3f4;
+      border-radius: 12px;
+      padding: 14px;
+      margin-top: 16px;
+    }
+    .result-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      font-size: 0.9rem;
+    }
+    .result-item:last-child {
+      margin-bottom: 0;
+      padding-top: 10px;
+      border-top: 1px dashed #ccc;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    .highlight {
+      color: var(--primary);
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>📈 주식 물타기 & 평단 계산기</h1>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab(0)">기본/다차수 물타기</div>
+    <div class="tab" onclick="switchTab(1)">목표 평단가 역산</div>
+  </div>
+
+  <!-- 탭 1: 다차수 물타기 계산 -->
+  <div id="tab-0" class="section active">
+    <div class="header-cols">
+      <span>구분</span>
+      <span>매수단가(원)</span>
+      <span>보유/매수(주)</span>
+      <span></span>
+    </div>
+    
+    <div id="buy-list">
+      <div class="row">
+        <span class="row-label">기존 보유</span>
+        <input type="number" inputmode="numeric" class="price" placeholder="평단가" value="70000" oninput="calcAverage()">
+        <input type="number" inputmode="numeric" class="qty" placeholder="수량" value="100" oninput="calcAverage()">
+        <div class="empty-del"></div>
+      </div>
+      <div class="row">
+        <span class="row-label">1차 추매</span>
+        <input type="number" inputmode="numeric" class="price" placeholder="매수가" value="56000" oninput="calcAverage()">
+        <input type="number" inputmode="numeric" class="qty" placeholder="수량" value="100" oninput="calcAverage()">
+        <button class="btn-del" onclick="removeRow(this)">✕</button>
+      </div>
+    </div>
+
+    <button class="btn btn-add" onclick="addRow()">+ 추가 매수 차수 늘리기</button>
+
+    <div class="result-box">
+      <div class="result-item">
+        <span>기존 총 매수금액</span>
+        <span id="orig-total">7,000,000 원</span>
+      </div>
+      <div class="result-item">
+        <span>추가 총 투자금액</span>
+        <span id="add-total">5,600,000 원</span>
+      </div>
+      <div class="result-item">
+        <span>최종 총 보유수량</span>
+        <span id="final-qty">200 주</span>
+      </div>
+      <div class="result-item">
+        <span>최종 총 투자금액</span>
+        <span id="final-total">12,600,000 원</span>
+      </div>
+      <div class="result-item">
+        <span>최종 평단가 (변화율)</span>
+        <span id="final-avg" class="highlight">63,000 원 (-10.00%)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 탭 2: 목표 평단가 역산 -->
+  <div id="tab-1" class="section">
+    <div class="target-row">
+      <span class="target-label">현재 평단가(원)</span>
+      <input type="number" inputmode="numeric" id="t-cur-price" value="70000" oninput="calcTarget()">
+    </div>
+    <div class="target-row">
+      <span class="target-label">현재 보유수량(주)</span>
+      <input type="number" inputmode="numeric" id="t-cur-qty" value="100" oninput="calcTarget()">
+    </div>
+    <div class="target-row">
+      <span class="target-label">현재 주가(매수가)</span>
+      <input type="number" inputmode="numeric" id="t-now-price" value="55000" oninput="calcTarget()">
+    </div>
+    <div class="target-row">
+      <span class="target-label" style="color: var(--primary);">희망 목표 평단가</span>
+      <input type="number" inputmode="numeric" id="t-goal-price" value="60000" oninput="calcTarget()">
+    </div>
+
+    <div class="result-box" id="target-result">
+      <div class="result-item">
+        <span>추가 매수 필요 수량</span>
+        <span id="req-qty" class="highlight">200 주</span>
+      </div>
+      <div class="result-item">
+        <span>추가 필요 자금</span>
+        <span id="req-cost">11,000,000 원</span>
+      </div>
+      <div class="result-item">
+        <span>매수 후 총 보유수량</span>
+        <span id="after-qty">300 주</span>
+      </div>
+      <div class="result-item">
+        <span>매수 후 총 투자금액</span>
+        <span id="after-cost">18,000,000 원</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function formatNum(num) {
+    return Math.round(num).toLocaleString('ko-KR');
+  }
+
+  function switchTab(idx) {
+    document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === idx));
+    document.querySelectorAll('.section').forEach((s, i) => s.classList.toggle('active', i === idx));
+  }
+
+  function addRow() {
+    const list = document.getElementById('buy-list');
+    const count = list.children.length;
+    const div = document.createElement('div');
+    div.className = 'row';
+    div.innerHTML = `
+      <span class="row-label">${count}차 추매</span>
+      <input type="number" inputmode="numeric" class="price" placeholder="매수가" oninput="calcAverage()">
+      <input type="number" inputmode="numeric" class="qty" placeholder="수량" oninput="calcAverage()">
+      <button class="btn-del" onclick="removeRow(this)">✕</button>
+    `;
+    list.appendChild(div);
+  }
+
+  function removeRow(btn) {
+    btn.parentElement.remove();
+    const rows = document.querySelectorAll('#buy-list .row');
+    rows.forEach((row, idx) => {
+      if (idx > 0) row.querySelector('.row-label').innerText = `${idx}차 추매`;
+    });
+    calcAverage();
+  }
+
+  function calcAverage() {
+    const rows = document.querySelectorAll('#buy-list .row');
+    let origCost = 0, origPrice = 0;
+    let addCost = 0, totalQty = 0;
+
+    rows.forEach((row, idx) => {
+      const p = parseFloat(row.querySelector('.price').value) || 0;
+      const q = parseFloat(row.querySelector('.qty').value) || 0;
+      if (idx === 0) {
+        origPrice = p;
+        origCost = p * q;
+      } else {
+        addCost += p * q;
+      }
+      totalQty += q;
+    });
+
+    const finalCost = origCost + addCost;
+    const finalAvg = totalQty > 0 ? finalCost / totalQty : 0;
+    const diffRate = origPrice > 0 ? ((finalAvg - origPrice) / origPrice) * 100 : 0;
+
+    document.getElementById('orig-total').innerText = `${formatNum(origCost)} 원`;
+    document.getElementById('add-total').innerText = `${formatNum(addCost)} 원`;
+    document.getElementById('final-qty').innerText = `${formatNum(totalQty)} 주`;
+    document.getElementById('final-total').innerText = `${formatNum(finalCost)} 원`;
+    
+    const sign = diffRate > 0 ? '+' : '';
+    document.getElementById('final-avg').innerText = 
+      `${formatNum(finalAvg)} 원 (${sign}${diffRate.toFixed(2)}%)`;
+  }
+
+  function calcTarget() {
+    const curP = parseFloat(document.getElementById('t-cur-price').value) || 0;
+    const curQ = parseFloat(document.getElementById('t-cur-qty').value) || 0;
+    const nowP = parseFloat(document.getElementById('t-now-price').value) || 0;
+    const goalP = parseFloat(document.getElementById('t-goal-price').value) || 0;
+
+    const reqQtyEl = document.getElementById('req-qty');
+    
+    if (goalP <= nowP || goalP >= curP) {
+      reqQtyEl.innerText = "현재가~평단가 사이 입력";
+      document.getElementById('req-cost').innerText = "-";
+      document.getElementById('after-qty').innerText = "-";
+      document.getElementById('after-cost').innerText = "-";
+      return;
+    }
+
+    const reqQty = Math.ceil((curQ * (curP - goalP)) / (goalP - nowP));
+    const reqCost = reqQty * nowP;
+    const afterQty = curQ + reqQty;
+    const afterCost = (curP * curQ) + reqCost;
+
+    reqQtyEl.innerText = `약 ${formatNum(reqQty)} 주`;
+    document.getElementById('req-cost').innerText = `${formatNum(reqCost)} 원`;
+    document.getElementById('after-qty').innerText = `${formatNum(afterQty)} 주`;
+    document.getElementById('after-cost').innerText = `${formatNum(afterCost)} 원`;
+  }
+
+  calcAverage();
+  calcTarget();
+</script>
+
+</body>
+</html>
